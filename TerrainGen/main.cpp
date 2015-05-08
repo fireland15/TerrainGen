@@ -19,62 +19,122 @@ V_vec2 uv_coords;
 V_vec3 faces;
 VVF hmap;
 
+struct Vertex {
+	glm::vec3 position;
+	glm::vec3 normal;
+	glm::vec2 texcoord;
+};
+
+struct Triangle {
+	Vertex vert[3];
+};
+
+std::vector<std::vector<Vertex>> Vertices;
+
 enum rel_pos { center, top, bottom, left, right };
 
-void WriteHmapToOBJFile(std::string filename) {
-	for (unsigned int i = 0; i < hmap.size()-2; i++) {
-		for (unsigned int j = 0; j < hmap[0].size()-2; j++) {
-			int x = vertices.size();
-			vertices.push_back(glm::vec3(i, hmap[i][j], j));
-			uv_coords.push_back(glm::vec2(0, 0));
-			vertices.push_back(glm::vec3(i + 1, hmap[i + 1][j], j));
-			uv_coords.push_back(glm::vec2(1, 0));
-			vertices.push_back(glm::vec3(i, hmap[i][j + 1], j + 1));
-			uv_coords.push_back(glm::vec2(0, 1));
-			faces.push_back(glm::vec3(x + 1, x + 2, x + 3));
+inline glm::vec3 GetLineNormal(glm::vec3 p0, glm::vec3 p1) {
+	glm::vec3 l = p1 - p0;
+	return glm::normalize(glm::cross(l, glm::vec3(l.z, 0, -l.x)));
+}
 
-			vertices.push_back(glm::vec3(i + 1, hmap[i + 1][j], j));
-			uv_coords.push_back(glm::vec2(1, 0));
-			vertices.push_back(glm::vec3(i + 1, hmap[i + 1][j + 1], j + 1));
-			uv_coords.push_back(glm::vec2(1, 1));
-			vertices.push_back(glm::vec3(i, hmap[i][j + 1], j + 1));
-			uv_coords.push_back(glm::vec2(0, 1));
-			faces.push_back(glm::vec3(x + 4, x + 5, x + 6));
+void CalculateNormals() {
+	for (int i = 0; i < Vertices.size(); i++) {
+		for (int j = 0; j < Vertices.size(); j++) {
+			glm::vec3 normal(0, 0, 0);
+			if (i - 1 >= 0) {
+				normal += GetLineNormal(Vertices[i][j].position, Vertices[i - 1][j].position);
+			}
+			if (i + 1 < mapsize + 1) {
+				normal += GetLineNormal(Vertices[i][j].position, Vertices[i + 1][j].position);
+			}
+			if (j - 1 >= 0) {
+				normal += GetLineNormal(Vertices[i][j].position, Vertices[i][j - 1].position);
+			}
+			if (j + 1 < mapsize + 1) {
+				normal += GetLineNormal(Vertices[i][j].position, Vertices[i][j + 1].position);
+			}
+			Vertices[i][j].normal = glm::normalize(normal);
 		}
 	}
+}
+
+std::vector<Triangle> GenTriangleList() {
+	std::vector<Triangle> triangles;
+	for (unsigned int i = 0; i < Vertices.size() - 1; i++) {
+		for (unsigned int j = 0; j < Vertices[i].size() - 1; j++) {
+			Triangle tri;
+			tri.vert[0] = Vertices[i][j];
+			tri.vert[1] = Vertices[i + 1][j];
+			tri.vert[2] = Vertices[i + 1][j + 1];
+			triangles.push_back(tri);
+
+			tri.vert[1] = Vertices[i + 1][j + 1];
+			tri.vert[2] = Vertices[i][j + 1];
+			triangles.push_back(tri);
+		}
+	}
+	return triangles;
+}
+
+void AssignTexCoords(std::vector<Triangle> triangles) {
+	for (unsigned int i = 0; i < triangles.size(); i++) {
+		glm::vec3 a = glm::normalize(triangles[i].vert[1].position - triangles[i].vert[0].position);
+		glm::vec3 b = glm::normalize(triangles[i].vert[2].position - triangles[i].vert[0].position);
+
+		glm::vec3 c = glm::normalize(glm::cross(b, a));
+
+		float angle = (glm::dot(c, glm::vec3(0, 1, 0)));
+
+		if (angle >= DEG2RAD(70)) {
+			triangles[i].vert[0].texcoord = glm::vec2(0, 0);
+			triangles[i].vert[1].texcoord = glm::vec2(1, 0);
+			triangles[i].vert[2].texcoord = glm::vec2(0, 1);
+		}
+		else {
+			triangles[i].vert[0].texcoord = glm::vec2(1, 0);
+			triangles[i].vert[1].texcoord = glm::vec2(1, 1);
+			triangles[i].vert[2].texcoord = glm::vec2(0, 1);
+		}
+	}
+}
+
+std::vector<Vertex> ConvertTriListToVertList(std::vector<Triangle>& Triangles) {
+	std::vector<Vertex> v;
+	for (unsigned int i = 0; i < Triangles.size(); i++) {
+		for (unsigned int j = 0; j < 3; j++) {
+			v.push_back(Triangles[i].vert[j]);
+		}
+	}
+
+	return v;
+}
+
+void WriteHmapToOBJFile(std::string filename) {
+	Vertices.resize(mapsize + 1);
+	for (unsigned int i = 0; i < Vertices.size(); i++) {
+		Vertices[i].resize(mapsize + 1);
+	}
+
+	for (unsigned int i = 0; i < mapsize + 1; i++) {
+		for (unsigned int j = 0; j < mapsize + 1; j++) {
+			Vertices[i][j].position.x = i;
+			Vertices[i][j].position.y = hmap[i][j];
+			Vertices[i][j].position.z = j;
+		}
+	}
+
+	CalculateNormals();
+
+	std::vector<Triangle> Triangles = GenTriangleList();
+
+	AssignTexCoords(Triangles);
+
+	std::vector<Vertex> V = ConvertTriListToVertList(Triangles);
 
 	std::ofstream obj;
 	obj.open(filename);
-	obj << "# heightmap" << std::endl;
-	for (unsigned int i = 0; i < vertices.size(); i++) {
-		obj << "v " << vertices[i].x << " " << vertices[i].y << " " << vertices[i].z << std::endl;
-	}
-
-	obj << "vt " << 0 << " " << 0<< std::endl;
-	obj << "vt " << 0.5 << " " << 0 << std::endl;
-	obj << "vt " << 0 << " " << 0.5 << std::endl;
-	obj << "vt " << 0.5 << " " << 0.5 << std::endl;
-
-	obj << "vt " << 0.5 << " " << 0 << std::endl;
-	obj << "vt " << 1 << " " << 0 << std::endl;
-	obj << "vt " << 0.5 << " " << 0.5 << std::endl;
-	obj << "vt " << 1 << " " << 0.5 << std::endl;
-
-	for (unsigned int i = 0; i < faces.size(); i++) {
-		glm::vec3 face_normal = -glm::normalize(glm::cross(vertices[faces[i][1]] - vertices[faces[i][0]], vertices[faces[i][0]] - vertices[faces[i][2]]));
-		float angle = glm::angle(face_normal, glm::vec3(0, 1, 0));
-		//std::cout << angle << std::endl;
-		if (angle < 0.707) {
-			obj << "f " << faces[i][0] << "/" << 1 << " " << faces[i][1] << "/" << 2 << " " << faces[i][2] << "/" << 3 << "" << std::endl;
-			i++;
-			obj << "f " << faces[i][0] << "/" << 2 << " " << faces[i][1] << "/" << 4 << " " << faces[i][2] << "/" << 3 << "" << std::endl;
-		}
-		else {
-			obj << "f " << faces[i][0] << "/" << 5 << " " << faces[i][1] << "/" << 6 << " " << faces[i][2] << "/" << 7 << "" << std::endl;
-			i++;
-			obj << "f " << faces[i][0] << "/" << 6 << " " << faces[i][1] << "/" << 8 << " " << faces[i][2] << "/" << 7 << "" << std::endl;
-		}
-	}
+	
 	obj.close();
 }
 
