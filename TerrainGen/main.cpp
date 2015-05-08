@@ -1,5 +1,6 @@
 #include "FI_Graphics.h"
 #include "FI_Bitmap.h"
+#include <map>
 #include <glm\gtx\vector_angle.hpp>
 
 //#define MD
@@ -19,21 +20,159 @@ V_vec2 uv_coords;
 V_vec3 faces;
 VVF hmap;
 
+struct Vertex {
+	glm::vec3 position;
+	glm::vec3 normal;
+	glm::vec2 texcoord;
+};
+
+struct Triangle {
+	Vertex vert[3];
+};
+
+std::vector<std::vector<Vertex>> Vertices;
+
 enum rel_pos { center, top, bottom, left, right };
 
-void CalculateNormals() {
-
+inline glm::vec3 GetLineNormal(glm::vec3 p0, glm::vec3 p1) {
+	glm::vec3 l = p1 - p0;
+	return glm::normalize(glm::cross(l, glm::vec3(l.z, 0, -l.x)));
 }
 
+void CalculateNormals() {
+	for (int i = 0; i < Vertices.size(); i++) {
+		for (int j = 0; j < Vertices.size(); j++) {
+			glm::vec3 normal(0, 0, 0);
+			if (i - 1 >= 0) {
+				normal += GetLineNormal(Vertices[i][j].position, Vertices[i - 1][j].position);
+			}
+			if (i + 1 < mapsize + 1) {
+				normal += GetLineNormal(Vertices[i][j].position, Vertices[i + 1][j].position);
+			}
+			if (j - 1 >= 0) {
+				normal += GetLineNormal(Vertices[i][j].position, Vertices[i][j - 1].position);
+			}
+			if (j + 1 < mapsize + 1) {
+				normal += GetLineNormal(Vertices[i][j].position, Vertices[i][j + 1].position);
+			}
+			Vertices[i][j].normal = glm::normalize(normal);
+		}
+	}
+}
+
+std::vector<Triangle> GenTriangleList() {
+	std::vector<Triangle> triangles;
+	for (unsigned int i = 0; i < Vertices.size() - 1; i++) {
+		for (unsigned int j = 0; j < Vertices[i].size() - 1; j++) {
+			Triangle tri;
+			tri.vert[0] = Vertices[i][j];
+			tri.vert[1] = Vertices[i + 1][j];
+			tri.vert[2] = Vertices[i + 1][j + 1];
+			triangles.push_back(tri);
+
+			tri.vert[1] = Vertices[i + 1][j + 1];
+			tri.vert[2] = Vertices[i][j + 1];
+			triangles.push_back(tri);
+		}
+	}
+	return triangles;
+}
+
+void AssignTexCoords(std::vector<Triangle> triangles) {
+	for (unsigned int i = 0; i < triangles.size(); i++) {
+		glm::vec3 a = glm::normalize(triangles[i].vert[1].position - triangles[i].vert[0].position);
+		glm::vec3 b = glm::normalize(triangles[i].vert[2].position - triangles[i].vert[0].position);
+
+		glm::vec3 c = glm::normalize(glm::cross(b, a));
+
+		float angle = (glm::dot(c, glm::vec3(0, 1, 0)));
+
+		if (angle >= DEG2RAD(70)) {
+			triangles[i].vert[0].texcoord = glm::vec2(0, 0);
+			triangles[i].vert[1].texcoord = glm::vec2(1, 0);
+			triangles[i].vert[2].texcoord = glm::vec2(0, 1);
+		}
+		else {
+			triangles[i].vert[0].texcoord = glm::vec2(1, 0);
+			triangles[i].vert[1].texcoord = glm::vec2(1, 1);
+			triangles[i].vert[2].texcoord = glm::vec2(0, 1);
+		}
+	}
+}
+
+std::vector<Vertex> ConvertTriListToVertList(std::vector<Triangle>& Triangles) {
+	std::vector<Vertex> v;
+	for (unsigned int i = 0; i < Triangles.size(); i++) {
+		for (unsigned int j = 0; j < 3; j++) {
+			v.push_back(Triangles[i].vert[j]);
+		}
+	}
+
+	return v;
+}
+
+struct compVertex {
+	bool operator()(const Vertex& a, const Vertex& b) const {
+		if (a.position.x > a.position.x) return true;
+		if (a.position.x < a.position.x) return false;
+		if (a.position.y > a.position.y) return true;
+		if (a.position.y < a.position.y) return false;
+		if (a.position.z > a.position.z) return true;
+		if (a.position.z < a.position.z) return false;
+
+		if (a.normal.x > a.normal.x) return true;
+		if (a.normal.x < a.normal.x) return false;
+		if (a.normal.y > a.normal.y) return true;
+		if (a.normal.y < a.normal.y) return false;
+		if (a.normal.z > a.normal.z) return true;
+		if (a.normal.z < a.normal.z) return false;
+
+		if (a.texcoord.x > a.texcoord.x) return true;
+		if (a.texcoord.x < a.texcoord.x) return false;
+		if (a.texcoord.y > a.texcoord.y) return true;
+		if (a.texcoord.y < a.texcoord.y) return false;
+		return false;
+	}
+};
+
 void WriteHmapToOBJFile(std::string filename) {
+	Vertices.resize(mapsize + 1);
+	for (unsigned int i = 0; i < Vertices.size(); i++) {
+		Vertices[i].resize(mapsize + 1);
+	}
+
+	for (unsigned int i = 0; i < mapsize + 1; i++) {
+		for (unsigned int j = 0; j < mapsize + 1; j++) {
+			Vertices[i][j].position.x = i;
+			Vertices[i][j].position.y = hmap[i][j];
+			Vertices[i][j].position.z = j;
+		}
+	}
+
 	CalculateNormals();
+
+	std::vector<Triangle> Triangles = GenTriangleList();
+
+	AssignTexCoords(Triangles);
+
+	std::vector<Vertex> V = ConvertTriListToVertList(Triangles);
 
 	std::ofstream obj;
 	obj.open(filename);
-	// write to obj file here
+	
+	std::map<Vertex, int, compVertex> verts;
+
+	int count = 0;
+	for (unsigned int i = 0; i < V.size(); i++) {
+		if (verts.count(V[i]) == 0) {
+			// copy to temporary vertex, texcoord, and normal vectors.
+			count++;
+			verts[V[i]] = count;
+		}
+	}
+
 	obj.close();
 }
-
 
 float get_midpoint(float distance, float average) {
 	int direction = (int)(2 * (rand() % 2 - 0.5));
