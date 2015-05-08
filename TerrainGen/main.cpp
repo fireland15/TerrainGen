@@ -21,62 +21,19 @@ VVF hmap;
 
 enum rel_pos { center, top, bottom, left, right };
 
-void WriteHmapToOBJFile(std::string filename) {
-	for (unsigned int i = 0; i < hmap.size()-2; i++) {
-		for (unsigned int j = 0; j < hmap[0].size()-2; j++) {
-			int x = vertices.size();
-			vertices.push_back(glm::vec3(i, hmap[i][j], j));
-			uv_coords.push_back(glm::vec2(0, 0));
-			vertices.push_back(glm::vec3(i + 1, hmap[i + 1][j], j));
-			uv_coords.push_back(glm::vec2(1, 0));
-			vertices.push_back(glm::vec3(i, hmap[i][j + 1], j + 1));
-			uv_coords.push_back(glm::vec2(0, 1));
-			faces.push_back(glm::vec3(x + 1, x + 2, x + 3));
+void CalculateNormals() {
 
-			vertices.push_back(glm::vec3(i + 1, hmap[i + 1][j], j));
-			uv_coords.push_back(glm::vec2(1, 0));
-			vertices.push_back(glm::vec3(i + 1, hmap[i + 1][j + 1], j + 1));
-			uv_coords.push_back(glm::vec2(1, 1));
-			vertices.push_back(glm::vec3(i, hmap[i][j + 1], j + 1));
-			uv_coords.push_back(glm::vec2(0, 1));
-			faces.push_back(glm::vec3(x + 4, x + 5, x + 6));
-		}
-	}
+}
+
+void WriteHmapToOBJFile(std::string filename) {
+	CalculateNormals();
 
 	std::ofstream obj;
 	obj.open(filename);
-	obj << "# heightmap" << std::endl;
-	for (unsigned int i = 0; i < vertices.size(); i++) {
-		obj << "v " << vertices[i].x << " " << vertices[i].y << " " << vertices[i].z << std::endl;
-	}
-
-	obj << "vt " << 0 << " " << 0<< std::endl;
-	obj << "vt " << 0.5 << " " << 0 << std::endl;
-	obj << "vt " << 0 << " " << 0.5 << std::endl;
-	obj << "vt " << 0.5 << " " << 0.5 << std::endl;
-
-	obj << "vt " << 0.5 << " " << 0 << std::endl;
-	obj << "vt " << 1 << " " << 0 << std::endl;
-	obj << "vt " << 0.5 << " " << 0.5 << std::endl;
-	obj << "vt " << 1 << " " << 0.5 << std::endl;
-
-	for (unsigned int i = 0; i < faces.size(); i++) {
-		glm::vec3 face_normal = -glm::normalize(glm::cross(vertices[faces[i][1]] - vertices[faces[i][0]], vertices[faces[i][0]] - vertices[faces[i][2]]));
-		float angle = glm::angle(face_normal, glm::vec3(0, 1, 0));
-		//std::cout << angle << std::endl;
-		if (angle < 0.707) {
-			obj << "f " << faces[i][0] << "/" << 1 << " " << faces[i][1] << "/" << 2 << " " << faces[i][2] << "/" << 3 << "" << std::endl;
-			i++;
-			obj << "f " << faces[i][0] << "/" << 2 << " " << faces[i][1] << "/" << 4 << " " << faces[i][2] << "/" << 3 << "" << std::endl;
-		}
-		else {
-			obj << "f " << faces[i][0] << "/" << 5 << " " << faces[i][1] << "/" << 6 << " " << faces[i][2] << "/" << 7 << "" << std::endl;
-			i++;
-			obj << "f " << faces[i][0] << "/" << 6 << " " << faces[i][1] << "/" << 8 << " " << faces[i][2] << "/" << 7 << "" << std::endl;
-		}
-	}
+	// write to obj file here
 	obj.close();
 }
+
 
 float get_midpoint(float distance, float average) {
 	int direction = (int)(2 * (rand() % 2 - 0.5));
