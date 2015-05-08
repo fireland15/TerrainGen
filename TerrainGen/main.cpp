@@ -1,5 +1,6 @@
 #include "FI_Graphics.h"
 #include "FI_Bitmap.h"
+#include <map>
 #include <glm\gtx\vector_angle.hpp>
 
 //#define MD
@@ -110,6 +111,30 @@ std::vector<Vertex> ConvertTriListToVertList(std::vector<Triangle>& Triangles) {
 	return v;
 }
 
+struct compVertex {
+	bool operator()(const Vertex& a, const Vertex& b) const {
+		if (a.position.x > a.position.x) return true;
+		if (a.position.x < a.position.x) return false;
+		if (a.position.y > a.position.y) return true;
+		if (a.position.y < a.position.y) return false;
+		if (a.position.z > a.position.z) return true;
+		if (a.position.z < a.position.z) return false;
+
+		if (a.normal.x > a.normal.x) return true;
+		if (a.normal.x < a.normal.x) return false;
+		if (a.normal.y > a.normal.y) return true;
+		if (a.normal.y < a.normal.y) return false;
+		if (a.normal.z > a.normal.z) return true;
+		if (a.normal.z < a.normal.z) return false;
+
+		if (a.texcoord.x > a.texcoord.x) return true;
+		if (a.texcoord.x < a.texcoord.x) return false;
+		if (a.texcoord.y > a.texcoord.y) return true;
+		if (a.texcoord.y < a.texcoord.y) return false;
+		return false;
+	}
+};
+
 void WriteHmapToOBJFile(std::string filename) {
 	Vertices.resize(mapsize + 1);
 	for (unsigned int i = 0; i < Vertices.size(); i++) {
@@ -135,6 +160,17 @@ void WriteHmapToOBJFile(std::string filename) {
 	std::ofstream obj;
 	obj.open(filename);
 	
+	std::map<Vertex, int, compVertex> verts;
+
+	int count = 0;
+	for (unsigned int i = 0; i < V.size(); i++) {
+		if (verts.count(V[i]) == 0) {
+			// copy to temporary vertex, texcoord, and normal vectors.
+			count++;
+			verts[V[i]] = count;
+		}
+	}
+
 	obj.close();
 }
 
