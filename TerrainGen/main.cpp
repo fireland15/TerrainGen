@@ -6,12 +6,13 @@
 //#define MD
 #define DS
 //#define SAVETOTXT
-#define SAVETOBMP
+//#define SAVETOBMP
 
-float p_factor = 0.2f;
+float p_factor = 0.3;
 int seed_range = 20;
 int seed_min = -10;
-int divisions = 8;
+int divisions = 10;
+float Xscale = 2.0, Zscale = 2.0;
 int mapsize = pow(2, divisions); // Measured in squares/tiles
 unsigned int max_height = 255;
 
@@ -40,8 +41,8 @@ inline glm::vec3 GetLineNormal(glm::vec3 p0, glm::vec3 p1) {
 }
 
 void CalculateNormals() {
-	for (int i = 0; i < Vertices.size(); i++) {
-		for (int j = 0; j < Vertices.size(); j++) {
+	for (int i = 0; i < mapsize + 1; i++) {
+		for (int j = 0; j < mapsize + 1; j++) {
 			glm::vec3 normal(0, 0, 0);
 			if (i - 1 >= 0) {
 				normal += GetLineNormal(Vertices[i][j].position, Vertices[i - 1][j].position);
@@ -55,7 +56,7 @@ void CalculateNormals() {
 			if (j + 1 < mapsize + 1) {
 				normal += GetLineNormal(Vertices[i][j].position, Vertices[i][j + 1].position);
 			}
-			Vertices[i][j].normal = glm::normalize(normal);
+			Vertices[i][j].normal = -glm::normalize(normal);
 		}
 	}
 }
@@ -78,24 +79,51 @@ std::vector<Triangle> GenTriangleList() {
 	return triangles;
 }
 
-void AssignTexCoords(std::vector<Triangle> triangles) {
+void AssignTexCoords(std::vector<Triangle>& triangles) {
+	srand(time(NULL));
 	for (unsigned int i = 0; i < triangles.size(); i++) {
 		glm::vec3 a = glm::normalize(triangles[i].vert[1].position - triangles[i].vert[0].position);
 		glm::vec3 b = glm::normalize(triangles[i].vert[2].position - triangles[i].vert[0].position);
 
 		glm::vec3 c = glm::normalize(glm::cross(b, a));
 
-		float angle = (glm::dot(c, glm::vec3(0, 1, 0)));
+		float angle = acos(glm::dot(c, glm::vec3(0, 1, 0)));
 
-		if (angle >= DEG2RAD(70)) {
-			triangles[i].vert[0].texcoord = glm::vec2(0, 0);
-			triangles[i].vert[1].texcoord = glm::vec2(1, 0);
-			triangles[i].vert[2].texcoord = glm::vec2(0, 1);
+		if (angle >= DEG2RAD(0) && angle < DEG2RAD(35)) {
+			if (rand() % 2 == 1) {
+				triangles[i].vert[0].texcoord = glm::vec2(0, 0.5);
+				triangles[i].vert[1].texcoord = glm::vec2(0.5, 0.5);
+				triangles[i].vert[2].texcoord = glm::vec2(0.5, 1);
+			}
+			else {
+				triangles[i].vert[0].texcoord = glm::vec2(0, 0.5);
+				triangles[i].vert[1].texcoord = glm::vec2(0.5, 1);
+				triangles[i].vert[2].texcoord = glm::vec2(0, 1);
+			}
 		}
+		//else if (angle >= DEG2RAD(25) && angle < DEG2RAD(35)) {
+		//	if (rand() % 2 == 1) {
+		//		triangles[i].vert[0].texcoord = glm::vec2(0, 0);
+		//		triangles[i].vert[1].texcoord = glm::vec2(0.5, 0);
+		//		triangles[i].vert[2].texcoord = glm::vec2(0.5, 0.5);
+		//	}
+		//	else {
+		//		triangles[i].vert[0].texcoord = glm::vec2(0, 0);
+		//		triangles[i].vert[1].texcoord = glm::vec2(0.5, 0.5);
+		//		triangles[i].vert[2].texcoord = glm::vec2(0, 0.5);
+		//	}
+		//}
 		else {
-			triangles[i].vert[0].texcoord = glm::vec2(1, 0);
-			triangles[i].vert[1].texcoord = glm::vec2(1, 1);
-			triangles[i].vert[2].texcoord = glm::vec2(0, 1);
+			if (rand() % 2 == 1) {
+				triangles[i].vert[0].texcoord = glm::vec2(0.5, 0);
+				triangles[i].vert[1].texcoord = glm::vec2(1, 0);
+				triangles[i].vert[2].texcoord = glm::vec2(1, 0.5);
+			}
+			else {
+				triangles[i].vert[0].texcoord = glm::vec2(0.5, 0);
+				triangles[i].vert[1].texcoord = glm::vec2(1, 0.5);
+				triangles[i].vert[2].texcoord = glm::vec2(0.5, 0.5);
+			}
 		}
 	}
 }
@@ -113,26 +141,52 @@ std::vector<Vertex> ConvertTriListToVertList(std::vector<Triangle>& Triangles) {
 
 struct compVertex {
 	bool operator()(const Vertex& a, const Vertex& b) const {
-		if (a.position.x > a.position.x) return true;
-		if (a.position.x < a.position.x) return false;
-		if (a.position.y > a.position.y) return true;
-		if (a.position.y < a.position.y) return false;
-		if (a.position.z > a.position.z) return true;
-		if (a.position.z < a.position.z) return false;
+		if (a.position.x > b.position.x) return true;
+		if (a.position.x < b.position.x) return false;
+		if (a.position.y > b.position.y) return true;
+		if (a.position.y < b.position.y) return false;
+		if (a.position.z > b.position.z) return true;
+		if (a.position.z < b.position.z) return false;
 
-		if (a.normal.x > a.normal.x) return true;
-		if (a.normal.x < a.normal.x) return false;
-		if (a.normal.y > a.normal.y) return true;
-		if (a.normal.y < a.normal.y) return false;
-		if (a.normal.z > a.normal.z) return true;
-		if (a.normal.z < a.normal.z) return false;
+		if (a.normal.x > b.normal.x) return true;
+		if (a.normal.x < b.normal.x) return false;
+		if (a.normal.y > b.normal.y) return true;
+		if (a.normal.y < b.normal.y) return false;
+		if (a.normal.z > b.normal.z) return true;
+		if (a.normal.z < b.normal.z) return false;
 
-		if (a.texcoord.x > a.texcoord.x) return true;
-		if (a.texcoord.x < a.texcoord.x) return false;
-		if (a.texcoord.y > a.texcoord.y) return true;
-		if (a.texcoord.y < a.texcoord.y) return false;
+		if (a.texcoord.x > b.texcoord.x) return true;
+		if (a.texcoord.x < b.texcoord.x) return false;
+		if (a.texcoord.y > b.texcoord.y) return true;
+		if (a.texcoord.y < b.texcoord.y) return false;
 		return false;
 	}
+};
+
+struct compVec3 {
+	bool operator()(const glm::vec3& a, const glm::vec3& b) const {
+		if (a.x > b.x) return true;
+		if (a.x < b.x) return false;
+		if (a.y > b.y) return true;
+		if (a.y < b.y) return false;
+		if (a.z > b.z) return true;
+		if (a.z < b.z) return false;
+		return false;
+	}
+}; 
+
+struct compVec2 {
+	bool operator()(const glm::vec2& a, const glm::vec2& b) const {
+		if (a.x > b.x) return true;
+		if (a.x < b.x) return false;
+		if (a.y > b.y) return true;
+		if (a.y < b.y) return false;
+		return false;
+	}
+};
+
+struct vertIndices {
+	int v, n, t;
 };
 
 void WriteHmapToOBJFile(std::string filename) {
@@ -141,11 +195,11 @@ void WriteHmapToOBJFile(std::string filename) {
 		Vertices[i].resize(mapsize + 1);
 	}
 
-	for (unsigned int i = 0; i < mapsize + 1; i++) {
-		for (unsigned int j = 0; j < mapsize + 1; j++) {
-			Vertices[i][j].position.x = i;
+	for (int i = 0; i < mapsize + 1; i++) {
+		for (int j = 0; j < mapsize + 1; j++) {
+			Vertices[i][j].position.x = Xscale * i;
 			Vertices[i][j].position.y = hmap[i][j];
-			Vertices[i][j].position.z = j;
+			Vertices[i][j].position.z = Zscale * j;
 		}
 	}
 
@@ -157,21 +211,95 @@ void WriteHmapToOBJFile(std::string filename) {
 
 	std::vector<Vertex> V = ConvertTriListToVertList(Triangles);
 
-	std::ofstream obj;
-	obj.open(filename);
+	
 	
 	std::map<Vertex, int, compVertex> verts;
 
-	int count = 0;
+	std::map<glm::vec3, int, compVec3> map_position;
+	std::map<glm::vec3, int, compVec3> map_normal;
+	std::map<glm::vec2, int, compVec2> map_texcoord;
+
+	std::vector<glm::vec3> positions;
+	std::vector<glm::vec3> normals;
+	std::vector<glm::vec2> texcoords;
+	std::vector<int> faces;
+
 	for (unsigned int i = 0; i < V.size(); i++) {
-		if (verts.count(V[i]) == 0) {
-			// copy to temporary vertex, texcoord, and normal vectors.
-			count++;
-			verts[V[i]] = count;
+		vertIndices vI;
+		vI.v = 0; vI.n = 0; vI.t = 0;
+
+		// Checks if a vertex position has already been written, if it has, stores the index in a face
+		if (map_position.count(V[i].position) == 0) {
+			positions.push_back(V[i].position);
+			map_position[V[i].position] = positions.size();
+			vI.v = map_position[V[i].position];
 		}
+		else {
+			vI.v = map_position[V[i].position];
+		}
+
+		if (map_texcoord.count(V[i].texcoord) == 0) {
+			texcoords.push_back(V[i].texcoord);
+			map_texcoord[V[i].texcoord] = texcoords.size();
+			vI.t = map_texcoord[V[i].texcoord];
+		}
+		else {
+			vI.t = map_texcoord[V[i].texcoord];
+		}
+
+		if (map_normal.count(V[i].normal) == 0) {
+			normals.push_back(V[i].normal);
+			map_normal[V[i].normal] = normals.size();
+			vI.n = map_normal[V[i].normal];
+		}
+		else {
+			vI.n = map_normal[V[i].normal];
+		}
+
+		faces.push_back(vI.v);
+		faces.push_back(vI.t);
+		faces.push_back(vI.n);
+	}
+	
+	std::ofstream obj;
+	obj.open(filename);
+	obj.sync_with_stdio(false);
+
+	for (unsigned int i = 0; i < positions.size(); i++) {
+		obj << "v " << positions[i].x << " " << positions[i].y << " " << positions[i].z << std::endl;
+	}
+	for (unsigned int i = 0; i < texcoords.size(); i++) {
+		obj << "vt " << texcoords[i].x << " " << texcoords[i].y << std::endl;
+	}
+	for (unsigned int i = 0; i < normals.size(); i++) {
+		obj << "vn " << normals[i].x << " " << normals[i].y << " " << normals[i].z << std::endl;
+	}
+
+	for (unsigned int i = 0; i < faces.size(); i) {
+
+		// Apparently i++ only works with multiple calls per line when in debug mode. This way i increments at each i++
+		obj << "f " << faces[i++];
+		obj << "/" << faces[i++];
+		obj << "/" << faces[i++] << " ";
+
+		obj << faces[i++];
+		obj << "/" << faces[i++];
+		obj << "/" << faces[i++] << " ";
+
+		obj << faces[i++];
+		obj << "/" << faces[i++];
+		obj << "/" << faces[i++] << std::endl;
 	}
 
 	obj.close();
+}
+
+void SmoothHMap() {
+	for (int i = 0; i < mapsize + 1; i++) {
+		for (int j = 0; j < mapsize + 1; i++) {
+
+		}
+	}
 }
 
 float get_midpoint(float distance, float average) {
@@ -354,6 +482,7 @@ void normalize_map_to_max_height(VVF& map) {
 }
 
 int main() {
+	std::ios_base::sync_with_stdio(false);
 	srand((unsigned int)time(NULL));
 
 
