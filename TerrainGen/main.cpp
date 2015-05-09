@@ -8,10 +8,10 @@
 //#define SAVETOTXT
 //#define SAVETOBMP
 
-float p_factor = 0.3;
+float p_factor = 0.7;
 int seed_range = 20;
 int seed_min = -10;
-int divisions = 10;
+int divisions = 8;
 float Xscale = 2.0, Zscale = 2.0;
 int mapsize = pow(2, divisions); // Measured in squares/tiles
 unsigned int max_height = 255;
@@ -296,8 +296,44 @@ void WriteHmapToOBJFile(std::string filename) {
 
 void SmoothHMap() {
 	for (int i = 0; i < mapsize + 1; i++) {
-		for (int j = 0; j < mapsize + 1; i++) {
+		for (int j = 0; j < mapsize + 1; j++) {
+			float h = hmap[i][j];
+			int count = 1;
 
+			if (i - 1 >= 0) {
+				h += hmap[i - 1][j];
+				count++;
+			}
+			if (i < mapsize) {
+				h += hmap[i + 1][j];
+				count++;
+			}
+			if (i - 1 >= 0 && j - 1 >= 0) {
+				h += hmap[i - 1][j - 1];
+				count++;
+			}
+			if (i < mapsize && j < mapsize) {
+				h += hmap[i + 1][j + 1];
+				count++;
+			}
+			if (i - 1 >= 0 && j < mapsize) {
+				h += hmap[i - 1][j + 1];
+				count++;
+			}
+			if (i < mapsize && j - 1 >= 0) {
+				h += hmap[i + 1][j - 1];
+				count++;
+			}
+			if (j - 1 >= 0) {
+				h += hmap[i][j - 1];
+				count++;
+			}
+			if (j < mapsize) {
+				h += hmap[i][j + 1];
+				count++;
+			}
+
+			hmap[i][j] = h / count;
 		}
 	}
 }
@@ -511,6 +547,8 @@ int main() {
 	diamond_square(hmap, mapsize, divisions);
 
 #endif
+
+	SmoothHMap();
 	WriteHmapToOBJFile("hmap.obj");
 	normalize_map(hmap);
 	//normalize_map_to_max_height(hmap);
